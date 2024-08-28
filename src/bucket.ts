@@ -11,7 +11,6 @@ const storage = new Storage({
 export async function readFromBucket(bucket: string | undefined, fileName: string) {
     if (!bucket) return null;
     const [file] = await storage.bucket(bucket).file('q1.mp3').download();
-    console.log(file);
     return file;
 }
 

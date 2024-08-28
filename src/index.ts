@@ -49,7 +49,9 @@ const upload = multer({ storage: storage });
                 interview.started = true;
 
                 await interviewRepository.save(interview);
-                return res.status(200).end();
+                return res.status(200).json({
+                    totalQuestion: interview.totalQuestion
+                });
             }
             catch (e) {
                 return res.status(500).json({ message: "something went wrong" });
@@ -64,48 +66,55 @@ const upload = multer({ storage: storage });
 
             if (!userId || !jobId || !interviewId) return res.status(400).json({ message: "invalid ids" });
 
-            const interviewRepository = AppDataSource.getRepository(AiInterview);
+
             try {
-                const interview = await interviewRepository.findOne({
-                    where: { interviewId },
+                await AppDataSource.transaction(async (transactionalEntityManager) => {
+                    const interviewRepository = transactionalEntityManager.getRepository(AiInterview);
+                    const interview = await transactionalEntityManager.createQueryBuilder(AiInterview, 'interview')
+                        .where('interview.interviewId = :interviewId', { interviewId })
+                        .setLock('pessimistic_write')
+                        .getOne();
+
+                    if (!interview) return res.status(404).json({ message: "interview not found" });
+
+                    if (!interview.started) return res.status(400).json({ message: "interview not started" });
+
+                    if (interview.currentQuestion > interview.totalQuestion) return res.status(400).json({ message: "question exhausted" });
+
+                    const currentQuestion = interview.currentQuestion;
+                    const questionRepository = AppDataSource.getRepository(Question);
+                    const nextQuestion = await questionRepository.findOne({
+                        where: {
+                            interview: interview,
+                            question_no: currentQuestion,
+                        }
+                    })
+
+                    if (!nextQuestion) return res.status(404).json({ message: "next question not found" });
+
+                    interview.currentQuestion += 1;
+                    const audiioRawData = await readFromBucket(process.env.BUCKET, nextQuestion.question_location);
+
+                    if (!audiioRawData) return res.status(404).json({ message: "audio not found! retry after sometimes" });
+
+                    const audioFile = audiioRawData.toString('base64');
+
+                    await interviewRepository.save(interview);
+
+                    return res.status(201).json({
+                        audioFile: audioFile,
+                        text: nextQuestion.question_text,
+                        questionId: nextQuestion.questionId,
+                        nextQuestion: interview.currentQuestion > interview.totalQuestion ? -1 : interview.currentQuestion,
+                    });
+
                 })
-                if (!interview) return res.status(404).json({ message: "interview not found" });
-
-                if (!interview.started) return res.status(400).json({ message: "interview not started"});
-
-                if(interview.currentQuestion>interview.totalQuestion) return res.status(400).json({message:"question exhausted"});
-
-                const currentQuestion = interview.currentQuestion;
-                const questionRepository = AppDataSource.getRepository(Question);
-                const nextQuestion = await questionRepository.findOne({
-                    where: {
-                        interview: interview,
-                        question_no: currentQuestion ,
-                    }
-                })
-                
-                if (!nextQuestion) return res.status(404).json({ message: "next question not found" });
-
-                interview.currentQuestion += 1;
-                const audiioRawData = await readFromBucket(process.env.BUCKET, nextQuestion.question_location);
-
-                if (!audiioRawData) return res.status(404).json({ message: "audio not found! retry after sometimes" });
-
-                const audioFile = audiioRawData.toString('base64');
-
-                await interviewRepository.save(interview);
-
-                return res.status(201).json({
-                    audioFile: audioFile,
-                    text: nextQuestion.question_text,
-                    questionId: nextQuestion.questionId,
-                    nextQuestion: interview.currentQuestion>interview.totalQuestion ? -1 : interview.currentQuestion,
-                });
             }
             catch (e) {
                 console.log(e);
                 return res.status(500).end();
             }
+
         })
 
 
@@ -121,14 +130,14 @@ const upload = multer({ storage: storage });
             if (!userId || !jobId || !interviewId || !questionId) return res.status(400).json({ message: "invalid ids" });
 
             try {
-                const interviewRepository=AppDataSource.getRepository(interviewId);
-                const interview=await interviewRepository.findOne({
-                    where:{
-                        interviewId:interviewId,
+                const interviewRepository = AppDataSource.getRepository(AiInterview);
+                const interview = await interviewRepository.findOne({
+                    where: {
+                        interviewId: interviewId,
                     }
                 })
-                if(!interview) return res.status(404).json({message:"interview not found"});
-                if(!interview.started) return res.status(400).json({message:"interview not started"})
+                if (!interview) return res.status(404).json({ message: "interview not found" });
+                if (!interview.started) return res.status(400).json({ message: "interview not started" })
 
                 const questionRepository = AppDataSource.getRepository(Question);
                 const question = await questionRepository.findOne({
@@ -138,9 +147,10 @@ const upload = multer({ storage: storage });
                 });
                 if (!question) return res.status(404).json({ message: "question not found" });
 
-                if(question.answer_location || question.answer_text) return res.status(400).json({message:"question already answered"});
+                if (question.answer_location || question.answer_text) return res.status(400).json({ message: "question already answered" });
 
                 const result = await uploadToBucket(answer, questionId) as string;
+                console.log(result);
 
                 question.answer_location = result;
 
@@ -149,12 +159,13 @@ const upload = multer({ storage: storage });
                 return res.status(201).json({ message: "answer submitted" });
             }
             catch (e) {
+                console.log(e);
                 return res.status(500).json({ message: "something went wrong" });
             }
         })
 
 
-        const port = process.env.PORT || 4000;
+        const port = process.env.PORT || 8080;
         app.listen(port, () => {
             console.log(`app is listening on port ${port}`)
         })

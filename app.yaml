@@ -1,0 +1,8 @@
+runtime: nodejs20
+instance_class: F2
+env_variables:
+  NODE_ENV: 'production'
+  PORT: '8080'
+  INSTANCE_UNIX_SOCKET: '/cloudsql/mindful-silo-433713-m9:asia-south1:postgres-db'
+  
+entrypoint: npm run prod

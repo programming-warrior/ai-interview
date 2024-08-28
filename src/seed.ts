@@ -89,5 +89,6 @@ import { Question } from './models/Question';
         await AppDataSource.destroy();
     } catch (error) {
         console.error("Error during seeding:", error);
+        process.exit(1);
     }
 })();
