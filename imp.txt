@@ -1,0 +1,9 @@
+//interviewId, jobId,userID
+
+//questions -> location, text
+//answer->location, text, isTextAvailable
+//scores
+//completed (flag)
+
+//store the mp3 file in the s3bucket
+//have event on the s3 which would trigger 
