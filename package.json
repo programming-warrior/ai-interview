@@ -5,13 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "npx tsc -b && node ./dist",
-    "prod": "node ./dist/seed.js && node ./dist"
+    "prod": "npx tsc -b && npx typeorm migration:run -d ./dist/db.js && node ./dist/seed.js && node ./dist"
   },
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "typescript": "^5.5.4"
-  },
   "dependencies": {
     "@google-cloud/storage": "^7.12.1",
     "@types/cors": "^2.8.17",
@@ -24,6 +21,7 @@
     "multer": "^1.4.5-lts.1",
     "pg": "^8.12.0",
     "reflect-metadata": "^0.2.2",
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "typescript": "^5.5.4"
   }
 }

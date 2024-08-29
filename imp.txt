@@ -7,3 +7,25 @@
 
 //store the mp3 file in the s3bucket
 //have event on the s3 which would trigger 
+
+
+const storage = require('@google-cloud/storage');
+const axios=require("axios");
+
+const credentials = require('./key.json'); 
+
+const gcs= storage({
+ projectId: "43626213410",
+ credentials:credentials,
+}) 
+
+exports.helloGCS = async (event, context) => {
+ console.log(event);
+  const [bucketExists] = await gcs.bucket(event.bucket).exists();
+  if(bucketExists){
+    const [file] = await gcs.bucket(event.bucket).file(event.name).download();
+    console.log(file);
+  }else{
+    console.log("bucket not exits");
+  }
+};

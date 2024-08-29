@@ -2,6 +2,8 @@ import AppDataSource  from './db';
 import { AiInterview } from './models/AiInterview';
 import { Question } from './models/Question';
 
+console.log("new line");
+
 (async () => {
     try {
         await AppDataSource.initialize();
@@ -9,8 +11,14 @@ import { Question } from './models/Question';
         const aiInterviewRepository = AppDataSource.getRepository(AiInterview);
         const questionRepository = AppDataSource.getRepository(Question);
 
-        await questionRepository.delete({});  
-        await aiInterviewRepository.delete({});
+
+
+        if(questionRepository){
+            await questionRepository.delete({});  
+        }
+        if(aiInterviewRepository){
+            await aiInterviewRepository.delete({});
+        }
 
         const aiInterview1 = aiInterviewRepository.create({
             interviewId: 'interview1',

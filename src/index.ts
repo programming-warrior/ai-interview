@@ -117,6 +117,13 @@ const upload = multer({ storage: storage });
 
         })
 
+        app.post('/api/answer-text',async(req,res)=>{
+            let {text}=req.body;
+            text=typeof(text)==='string' ? text :null;
+            if(!text) return res.status(400).json({message:"invalid text"});
+            console.log(text);
+            res.status(201).end();
+        })
 
         app.post('/api/v1/answer', upload.single('file'), async (req, res) => {
             const answer = req.file;
