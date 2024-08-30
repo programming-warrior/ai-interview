@@ -30,6 +30,9 @@ export class Question {
     @Column({ type: 'boolean', default: false })
     isAnswerTextAvailable!: boolean; // Non-null assertion operator
 
+    @Column({type:'jsonb',default:null})
+    score!:JSON | null;
+
     @ManyToOne(() => AiInterview, interview => interview.questions)
     @JoinColumn({ name: 'interviewId' })
     interview!: AiInterview; // Non-null assertion operator

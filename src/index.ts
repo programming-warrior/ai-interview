@@ -66,7 +66,6 @@ const upload = multer({ storage: storage });
 
             if (!userId || !jobId || !interviewId) return res.status(400).json({ message: "invalid ids" });
 
-
             try {
                 await AppDataSource.transaction(async (transactionalEntityManager) => {
                     const interviewRepository = transactionalEntityManager.getRepository(AiInterview);
@@ -117,12 +116,40 @@ const upload = multer({ storage: storage });
 
         })
 
-        app.post('/api/v1/answer-text',async(req,res)=>{
-            let {text}=req.body;
-            text=typeof(text)==='string' ? text :null;
-            if(!text) return res.status(400).json({message:"invalid text"});
-            console.log(text);
-            res.status(201).end();
+        app.post('/api/v1/answer-text', async (req, res) => {
+            let { data, interviewId, questionId } = req.body;
+            let { text } = data;
+            const answer_text = typeof (text) === 'string' ? text : null;
+            interviewId = typeof (interviewId) == 'string' ? interviewId : null;
+            questionId = typeof (questionId) == 'string' && !isNaN(parseInt(questionId)) ? questionId : null;
+            if (!answer_text || !interviewId || !questionId) {
+                return res.status(400).json({ message: "invalid input sent" });
+            }
+            //SKIP  CHECK IF INTERVIEW EXITS
+            const questionRepository = AppDataSource.getRepository(Question);
+            try {
+                const question = await questionRepository.findOne({
+                    where: {
+                        questionId: questionId,
+                    }
+                });
+                if (!question) return res.status(404).json({ message: "question not found" })
+
+                question.isAnswerTextAvailable = true;
+                question.answer_text = answer_text;
+
+                const question_text = question.question_text;
+                const mlResponse = await axios.post("https://hr-round-api-qumcb7zgza-uc.a.run.app/predict_hr/", { question: question_text, answer: answer_text });
+                question.score=mlResponse.data;
+
+                await questionRepository.save(question);
+                return res.status(200).end();
+            }
+            catch(e:any){
+                console.log(e);
+                return res.status(500).json({message:e.message});
+            }
+      
         })
 
         app.post('/api/v1/answer', upload.single('file'), async (req, res) => {
@@ -156,7 +183,7 @@ const upload = multer({ storage: storage });
 
                 if (question.answer_location || question.answer_text) return res.status(400).json({ message: "question already answered" });
 
-                const result = await uploadToBucket(answer, interviewId,questionId) as string;
+                const result = await uploadToBucket(answer, interviewId, questionId) as string;
                 console.log(result);
 
                 question.answer_location = result;

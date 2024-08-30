@@ -17,7 +17,7 @@ export async function readFromBucket(bucket: string | undefined, fileName: strin
 export function uploadToBucket(fileData:any,interviewId:string,questionId:number):Promise<string|Error>{
     const bucketName = 'interview-answer';  
 
-    const filename = `a${interviewId}-${questionId}.${fileData.originalname.split('.')[1]}`; 
+    const filename = `${interviewId}-${questionId}.${fileData.originalname.split('.')[1]}`; 
 
     const bucket = storage.bucket(bucketName);
 
