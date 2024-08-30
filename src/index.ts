@@ -117,7 +117,7 @@ const upload = multer({ storage: storage });
 
         })
 
-        app.post('/api/answer-text',async(req,res)=>{
+        app.post('/api/v1/answer-text',async(req,res)=>{
             let {text}=req.body;
             text=typeof(text)==='string' ? text :null;
             if(!text) return res.status(400).json({message:"invalid text"});
@@ -156,7 +156,7 @@ const upload = multer({ storage: storage });
 
                 if (question.answer_location || question.answer_text) return res.status(400).json({ message: "question already answered" });
 
-                const result = await uploadToBucket(answer, questionId) as string;
+                const result = await uploadToBucket(answer, interviewId,questionId) as string;
                 console.log(result);
 
                 question.answer_location = result;

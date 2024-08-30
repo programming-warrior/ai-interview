@@ -14,14 +14,19 @@ export async function readFromBucket(bucket: string | undefined, fileName: strin
     return file;
 }
 
-export function uploadToBucket(fileData:any,questionId:number):Promise<string|Error>{
+export function uploadToBucket(fileData:any,interviewId:string,questionId:number):Promise<string|Error>{
     const bucketName = 'interview-answer';  
 
-    const filename = `a${questionId}.${fileData.originalname.split('.')[1]}`; 
+    const filename = `a${interviewId}-${questionId}.${fileData.originalname.split('.')[1]}`; 
 
     const bucket = storage.bucket(bucketName);
 
     const file = bucket.file(filename);
+
+    file.metadata={
+      interviewId,
+      questionId
+    }
 
     const stream = file.createWriteStream({ resumable: false });
 
