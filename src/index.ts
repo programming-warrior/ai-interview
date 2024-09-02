@@ -23,7 +23,6 @@ const upload = multer({ storage: storage });
         console.log('database connected');
 
         // ROUTES
-
         app.post('/api/v1/init', async (req, res) => {
             let { userId, jobId, interviewId } = req.body;
             userId = typeof (userId) === 'string' && userId.trim().length > 0 ? userId.trim() : null;
@@ -35,11 +34,11 @@ const upload = multer({ storage: storage });
             const interviewRepository = AppDataSource.getRepository(AiInterview);
             try {
                 const interview = await interviewRepository.findOne({
-                    where: { 
-                        interviewId:interviewId,
-                        jobId:jobId,
-                        userId:userId
-                     },
+                    where: {
+                        interviewId: interviewId,
+                        jobId: jobId,
+                        userId: userId
+                    },
                 })
                 if (!interview) return res.status(404).json({ message: "interview not found" });
                 if (interview.started) return res.status(400).json({ message: "interview already started" });
@@ -71,12 +70,12 @@ const upload = multer({ storage: storage });
             try {
                 await AppDataSource.transaction(async (transactionalEntityManager) => {
                     const interviewRepository = transactionalEntityManager.getRepository(AiInterview);
-                    const interview = await transactionalEntityManager.createQueryBuilder(AiInterview, 'interview')
-                        .where('interview.interviewId = :interviewId ', { interviewId })
-                        .andWhere('interview.userId= :userId',{userId})
-                        .andWhere('interview.jobId= :jobId',{jobId})
-                        .setLock('pessimistic_write')
-                        .getOne();
+                    const interview = await interviewRepository.findOne({
+                        where: {
+                            interviewId: interviewId,
+                        },
+                        lock: { mode: "pessimistic_write" }
+                    })
 
                     if (!interview) return res.status(404).json({ message: "interview not found" });
 
@@ -110,8 +109,8 @@ const upload = multer({ storage: storage });
                         questionId: nextQuestion.questionId,
                         nextQuestion: interview.currentQuestion > interview.totalQuestion ? -1 : interview.currentQuestion,
                     });
-
                 })
+
             }
             catch (e) {
                 console.log(e);
@@ -125,11 +124,10 @@ const upload = multer({ storage: storage });
             let { text } = data;
             const answer_text = typeof (text) === 'string' ? text : null;
             interviewId = typeof (interviewId) == 'string' ? interviewId : null;
-            questionId = typeof (questionId) == 'string' && !isNaN(parseInt(questionId)) ? questionId : null;
+            questionId = typeof (questionId) == 'string' && !isNaN(parseInt(questionId)) ? parseInt(questionId) : null;
             if (!answer_text || !interviewId || !questionId) {
                 return res.status(400).json({ message: "invalid input sent" });
             }
-        
             const questionRepository = AppDataSource.getRepository(Question);
             try {
                 const question = await questionRepository.findOne({
@@ -144,16 +142,16 @@ const upload = multer({ storage: storage });
 
                 const question_text = question.question_text;
                 const mlResponse = await axios.post("https://hr-round-api-qumcb7zgza-uc.a.run.app/predict_hr/", { question: question_text, answer: answer_text });
-                question.score=mlResponse.data;
+                question.score = mlResponse.data;
 
                 await questionRepository.save(question);
                 return res.status(200).end();
             }
-            catch(e:any){
+            catch (e: any) {
                 console.log(e);
-                return res.status(500).json({message:e.message});
+                return res.status(500).json({ message: e.message });
             }
-      
+
         })
 
         app.post('/api/v1/answer', upload.single('file'), async (req, res) => {
@@ -172,38 +170,38 @@ const upload = multer({ storage: storage });
                 const interview = await interviewRepository.findOne({
                     where: {
                         interviewId: interviewId,
-                        jobId:jobId,
-                        userId:userId
+                        jobId: jobId,
+                        userId: userId
                     }
                 })
                 if (!interview) return res.status(404).json({ message: "interview not found" });
                 if (!interview.started) return res.status(400).json({ message: "interview not started" })
 
-                const questionRepository = AppDataSource.getRepository(Question);
-                const question = await questionRepository.findOne({
-                    where: {
-                        questionId
-                    }
-                });
-                if (!question) return res.status(404).json({ message: "question not found" });
-                if (question.answer_location || question.answer_text) return res.status(400).json({ message: "question already answered" });
-                if(question.question_no>=interview.currentQuestion) return res.status(400).json({message:"answer cannot be submitted"}); 
+                await AppDataSource.transaction(async (transactionalEntityManager) => {
+                    const questionRepository = transactionalEntityManager.getRepository(Question);
+                    const question = await questionRepository.findOne({
+                        where: {
+                            questionId
+                        },
+                        lock: { mode: "pessimistic_write" }
+                    });
+                    if (!question) return res.status(404).json({ message: "question not found" });
+                    if (question.answer_location || question.answer_text) return res.status(400).json({ message: "question already answered" });
+                    if (question.question_no >= interview.currentQuestion) return res.status(400).json({ message: "answer cannot be submitted" });
 
+                    const result = await uploadToBucket(answer, interviewId, questionId) as string;
+                    console.log(result);
+                    question.answer_location = result;
+                    await questionRepository.save(question);
+                    return res.status(201).json({ message: "answer submitted" });
+                })
 
-                const result = await uploadToBucket(answer, interviewId, questionId) as string;
-
-                question.answer_location = result;
-
-                await questionRepository.save(question);
-
-                return res.status(201).json({ message: "answer submitted" });
             }
             catch (e) {
                 console.log(e);
                 return res.status(500).json({ message: "something went wrong" });
             }
         })
-
 
         const port = process.env.PORT || 8080;
         app.listen(port, () => {
