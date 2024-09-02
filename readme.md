@@ -13,6 +13,16 @@ transpile the code
     npx tsc -b
 ```
 
+Generate Migraiton File
+```bash
+     npx typeorm migration:generate src/migration/schema -d ./dist/db.js
+```
+ 
+ Run Migration
+```bash
+     npx typeorm migration:run -d ./dist/db.js
+```
+
 seed the db
 ```bash
      node ./dist/seed.js
