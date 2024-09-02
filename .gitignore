@@ -2,3 +2,4 @@ mindful-silo-433713-m9-b576d80448cf.json
 node_modules
 dist
 .env
+src/migration

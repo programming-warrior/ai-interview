@@ -2,8 +2,6 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import dotevn from "dotenv";
 import axios from "axios";
-import path from "path";
-import fs from "fs";
 import { Question } from "./models/Question";
 import { AiInterview } from "./models/AiInterview";
 import AppDataSource from "./db";
@@ -22,9 +20,9 @@ const upload = multer({ storage: storage });
 (async () => {
     try {
         await AppDataSource.initialize();
-
         console.log('database connected');
 
+        // ROUTES
 
         app.post('/api/v1/init', async (req, res) => {
             let { userId, jobId, interviewId } = req.body;
@@ -37,7 +35,11 @@ const upload = multer({ storage: storage });
             const interviewRepository = AppDataSource.getRepository(AiInterview);
             try {
                 const interview = await interviewRepository.findOne({
-                    where: { interviewId },
+                    where: { 
+                        interviewId:interviewId,
+                        jobId:jobId,
+                        userId:userId
+                     },
                 })
                 if (!interview) return res.status(404).json({ message: "interview not found" });
                 if (interview.started) return res.status(400).json({ message: "interview already started" });
@@ -70,7 +72,9 @@ const upload = multer({ storage: storage });
                 await AppDataSource.transaction(async (transactionalEntityManager) => {
                     const interviewRepository = transactionalEntityManager.getRepository(AiInterview);
                     const interview = await transactionalEntityManager.createQueryBuilder(AiInterview, 'interview')
-                        .where('interview.interviewId = :interviewId', { interviewId })
+                        .where('interview.interviewId = :interviewId ', { interviewId })
+                        .andWhere('interview.userId= :userId',{userId})
+                        .andWhere('interview.jobId= :jobId',{jobId})
                         .setLock('pessimistic_write')
                         .getOne();
 
@@ -92,11 +96,11 @@ const upload = multer({ storage: storage });
                     if (!nextQuestion) return res.status(404).json({ message: "next question not found" });
 
                     interview.currentQuestion += 1;
-                    const audiioRawData = await readFromBucket(process.env.BUCKET, nextQuestion.question_location);
+                    const audioRawData = await readFromBucket(process.env.BUCKET, nextQuestion.question_location);
 
-                    if (!audiioRawData) return res.status(404).json({ message: "audio not found! retry after sometimes" });
+                    if (!audioRawData) return res.status(404).json({ message: "audio not found! retry after sometimes" });
 
-                    const audioFile = audiioRawData.toString('base64');
+                    const audioFile = audioRawData.toString('base64');
 
                     await interviewRepository.save(interview);
 
@@ -125,7 +129,7 @@ const upload = multer({ storage: storage });
             if (!answer_text || !interviewId || !questionId) {
                 return res.status(400).json({ message: "invalid input sent" });
             }
-            //SKIP  CHECK IF INTERVIEW EXITS
+        
             const questionRepository = AppDataSource.getRepository(Question);
             try {
                 const question = await questionRepository.findOne({
@@ -168,6 +172,8 @@ const upload = multer({ storage: storage });
                 const interview = await interviewRepository.findOne({
                     where: {
                         interviewId: interviewId,
+                        jobId:jobId,
+                        userId:userId
                     }
                 })
                 if (!interview) return res.status(404).json({ message: "interview not found" });
@@ -180,11 +186,11 @@ const upload = multer({ storage: storage });
                     }
                 });
                 if (!question) return res.status(404).json({ message: "question not found" });
-
                 if (question.answer_location || question.answer_text) return res.status(400).json({ message: "question already answered" });
+                if(question.question_no>=interview.currentQuestion) return res.status(400).json({message:"answer cannot be submitted"}); 
+
 
                 const result = await uploadToBucket(answer, interviewId, questionId) as string;
-                console.log(result);
 
                 question.answer_location = result;
 

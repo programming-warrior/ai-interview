@@ -10,30 +10,30 @@ import { AiInterview } from './AiInterview';
 @Entity('question')
 export class Question {
     @PrimaryGeneratedColumn()
-    questionId!: number; // Non-null assertion operator
+    questionId!: number; 
 
     @Column({ type: 'varchar' })
-    question_location!: string; // Non-null assertion operator
+    question_location!: string; 
 
     @Column({type:'int'})
     question_no!:number;
 
     @Column({ type: 'varchar' })
-    question_text!: string; // Non-null assertion operator
+    question_text!: string; 
 
     @Column({ type: 'varchar', nullable: true, default: null })
-    answer_location!: string | null; // Non-null assertion operator
+    answer_location!: string | null; 
 
     @Column({ type: 'varchar', nullable: true, default: null })
-    answer_text!: string | null; // Non-null assertion operator
+    answer_text!: string | null; 
 
     @Column({ type: 'boolean', default: false })
-    isAnswerTextAvailable!: boolean; // Non-null assertion operator
+    isAnswerTextAvailable!: boolean; 
 
     @Column({type:'jsonb',default:null})
     score!:JSON | null;
 
     @ManyToOne(() => AiInterview, interview => interview.questions)
     @JoinColumn({ name: 'interviewId' })
-    interview!: AiInterview; // Non-null assertion operator
+    interview!: AiInterview; 
 }
