@@ -120,11 +120,8 @@ const upload = multer({ storage: storage });
 
         app.post('/api/v1/answer-text', async (req, res) => {
             const auth=req.headers.authorization;
-            console.log(auth);
             if(!auth || auth.split(' ')[0]!=='Bearer') return res.status(403).json({message:"auth header missing"});
             const secretKey=auth.split(' ')[1];
-            console.log(secretKey);
-            console.log(process.env.SHARED_SECRET_CLOUDFUNCTION);
             if(secretKey!==process.env.SHARED_SECRET_CLOUDFUNCTION) return res.status(403).json({message:"invalid secret key"});
 
             let { data, interviewId, questionId } = req.body;
