@@ -116,10 +116,17 @@ const upload = multer({ storage: storage });
                 console.log(e);
                 return res.status(500).end();
             }
-
         })
 
         app.post('/api/v1/answer-text', async (req, res) => {
+            const auth=req.headers.authorization;
+            console.log(auth);
+            if(!auth || auth.split(' ')[0]!=='Bearer') return res.status(403).json({message:"auth header missing"});
+            const secretKey=auth.split(' ')[1];
+            console.log(secretKey);
+            console.log(process.env.SHARED_SECRET_CLOUDFUNCTION);
+            if(secretKey!==process.env.SHARED_SECRET_CLOUDFUNCTION) return res.status(403).json({message:"invalid secret key"});
+
             let { data, interviewId, questionId } = req.body;
             let { text } = data;
             const answer_text = typeof (text) === 'string' ? text : null;
@@ -190,7 +197,6 @@ const upload = multer({ storage: storage });
                     if (question.question_no >= interview.currentQuestion) return res.status(400).json({ message: "answer cannot be submitted" });
 
                     const result = await uploadToBucket(answer, interviewId, questionId) as string;
-                    console.log(result);
                     question.answer_location = result;
                     await questionRepository.save(question);
                     return res.status(201).json({ message: "answer submitted" });
